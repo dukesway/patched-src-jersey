@@ -356,7 +356,7 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
                 LocalizationMessages.EJB_INTERFACE_HANDLING_METHOD_LOOKUP_EXCEPTION(method, component, iFace), ex);
     }
 
-    private List<Class> remoteAndLocalIfaces(final Class<?> resourceClass) {
+    private static List<Class> remoteAndLocalIfaces(final Class<?> resourceClass) {
         final List<Class> allLocalOrRemoteIfaces = new LinkedList<>();
         if (resourceClass.isAnnotationPresent(Remote.class)) {
             allLocalOrRemoteIfaces.addAll(Arrays.asList(resourceClass.getAnnotation(Remote.class).value()));
@@ -408,14 +408,17 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
                 Object result;
                 try {
                     result = ic.lookup(jndiName);
-                    if (result != null
-                            && (rawType.isInstance(result)
-                            || Arrays.stream(rawType.getInterfaces())
-                                    .filter(rawInterface -> rawInterface.isInstance(result))
-                                    .findAny()
-                                    .isPresent())) {
-                        return result;
+                    if (result != null) {
+                        if (rawType.isInstance(result)
+                                || remoteAndLocalIfaces(rawType)
+                                        .stream()
+                                        .filter(iFaces -> iFaces.isInstance(result))
+                                        .findAny()
+                                        .isPresent()) {
+                            return result;
+                        }
                     }
+
                 } catch (NamingException e) {
                     ne = e;
                 }
@@ -439,13 +442,15 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
                 Object result;
                 try {
                     result = ic.lookup(jndiName);
-                    if (result != null
-                            && (rawType.isInstance(result)
-                            || Arrays.stream(rawType.getInterfaces())
-                                    .filter(rawInterface -> rawInterface.isInstance(result))
-                                    .findAny()
-                                    .isPresent())) {
-                        return result;
+                    if (result != null) {
+                        if (rawType.isInstance(result)
+                                || remoteAndLocalIfaces(rawType)
+                                        .stream()
+                                        .filter(iFaces -> iFaces.isInstance(result))
+                                        .findAny()
+                                        .isPresent()) {
+                            return result;
+                        }
                     }
                 } catch (NamingException e) {
                     ne = e;
