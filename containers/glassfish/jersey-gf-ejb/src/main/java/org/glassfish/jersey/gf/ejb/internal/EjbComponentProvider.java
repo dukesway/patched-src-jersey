@@ -37,6 +37,7 @@
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
+// Portions Copyright [2018] [Payara Foundation and/or its affiliates]
 
 package org.glassfish.jersey.gf.ejb.internal;
 
@@ -381,18 +382,22 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
         }
     }
 
-    private static Object lookup(InitialContext ic, Class<?> c, String name, EjbComponentProvider provider)
+    private static Object lookup(InitialContext ic, Class<?> rawType, String name, EjbComponentProvider provider)
             throws NamingException {
         try {
-            return lookupSimpleForm(ic, name, provider);
+            return lookupSimpleForm(ic, rawType, name, provider);
         } catch (NamingException ex) {
-            LOGGER.log(Level.WARNING, LocalizationMessages.EJB_CLASS_SIMPLE_LOOKUP_FAILED(c.getName()), ex);
+            LOGGER.log(Level.WARNING, LocalizationMessages.EJB_CLASS_SIMPLE_LOOKUP_FAILED(rawType.getName()), ex);
 
-            return lookupFullyQualifiedForm(ic, c, name, provider);
+            return lookupFullyQualifiedForm(ic, rawType, name, provider);
         }
     }
 
-    private static Object lookupSimpleForm(InitialContext ic, String name, EjbComponentProvider provider) throws NamingException {
+    private static Object lookupSimpleForm(
+            InitialContext ic,
+            Class<?> rawType,
+            String name,
+            EjbComponentProvider provider) throws NamingException {
         if (provider.libNames.isEmpty()) {
             String jndiName = "java:module/" + name;
             return ic.lookup(jndiName);
@@ -403,7 +408,12 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
                 Object result;
                 try {
                     result = ic.lookup(jndiName);
-                    if (result != null) {
+                    if (result != null
+                            && (rawType.isInstance(result)
+                            || Arrays.stream(rawType.getInterfaces())
+                                    .filter(rawInterface -> rawInterface.isInstance(result))
+                                    .findAny()
+                                    .isPresent())) {
                         return result;
                     }
                 } catch (NamingException e) {
@@ -414,19 +424,27 @@ public final class EjbComponentProvider implements ComponentProvider, ResourceMe
         }
     }
 
-    private static Object lookupFullyQualifiedForm(InitialContext ic, Class<?> c, String name, EjbComponentProvider provider)
-            throws NamingException {
+    private static Object lookupFullyQualifiedForm(
+            InitialContext ic,
+            Class<?> rawType,
+            String name,
+            EjbComponentProvider provider) throws NamingException {
         if (provider.libNames.isEmpty()) {
-            String jndiName = "java:module/" + name + "!" + c.getName();
+            String jndiName = "java:module/" + name + "!" + rawType.getName();
             return ic.lookup(jndiName);
         } else {
             NamingException ne = null;
             for (String moduleName : provider.libNames) {
-                String jndiName = "java:app/" + moduleName + "/" + name + "!" + c.getName();
+                String jndiName = "java:app/" + moduleName + "/" + name + "!" + rawType.getName();
                 Object result;
                 try {
                     result = ic.lookup(jndiName);
-                    if (result != null) {
+                    if (result != null
+                            && (rawType.isInstance(result)
+                            || Arrays.stream(rawType.getInterfaces())
+                                    .filter(rawInterface -> rawInterface.isInstance(result))
+                                    .findAny()
+                                    .isPresent())) {
                         return result;
                     }
                 } catch (NamingException e) {
